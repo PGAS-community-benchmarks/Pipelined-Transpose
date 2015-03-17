@@ -33,17 +33,23 @@ matrix distribution. This is a hybrid implementation where a global transpose
 is followed by a local transpose.
 
 While the MPI implementation uses an MPI alltoall for global communication
-(where potentially several methods are being used, e.g. Brucks Algorithm for
-latency bound message sizes or parallel send/recv (possibly hierarchical) 
-communication schedules for large message sizes) the GASPI implementation uses
-a single, rather naive communication step, in which all required communication
-to all target ranks is issued in a single loop. The notification based one
-sided communication requests are scheduled (target rank sequence) such that we
-minimize network congestion, i.e. we always aim for bidirectional
-communication even though the actual communication is entirely one-sided.
+(where potentially several methods are being used, e.g. linear aggreagtion,
+Brucks Algorithm for latency bound message sizes, parallel send/recv 1
+(possibly hierarchical) communication schedules for large message sizes etc.)
+the GASPI implementation uses a rather naive communication algorithm, in 
+which all required communication to all target ranks is issued in a single
+phase. The notification based one sided communication requests are scheduled 
+(target rank sequence) such that we minimize network congestion, i.e. we
+always aim for bidirectional communication even though the actual
+communication is entirely one-sided.
 
 Interestingly we find that this rather naive implementation appears to beat
 existing MPI implementations by quite a substantial factor.
+
+We note that (apart from potential network congestion) GASPI notifications 
+are limited by hardware (message rate, bandwidth, etc) rather than the 
+communication layer software stack. As such we believe that this
+implementation potentially can scale very high.
 
 ==============================================================================
 2.  Contents of this Distribution

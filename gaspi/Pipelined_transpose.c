@@ -101,18 +101,14 @@ int main (int argc, char *argv[])
   block_t (*block) = malloc( M_SZ * sizeof(block_t));	  
   int block_num = 0;
 
-  data_init(iProc
-	    , nProc
-	    , mStart
-	    , mStop
-	    , block
+  data_init(block
 	    , &block_num
 	    , tSize
 	    , mSize
 	    );
 
   // init thread local data, set thread range (tStart <= row <= tStop)
-#pragma omp parallel default (none) shared(mStart, mStop, block, block_num, \
+#pragma omp parallel default (none) shared(block, block_num, \
   	    mSize, source_array, work_array, target_array, stdout, stderr)
   {
     int const tid = omp_get_thread_num();  
@@ -158,8 +154,7 @@ int main (int argc, char *argv[])
       double time = -now();
       MPI_Barrier(MPI_COMM_WORLD);
 #pragma omp parallel default (none) shared(block_num, iProc, nProc, to,	\
-	    block, mStart, mStop, \
-	    source_array, work_array, target_array, mSize, stdout,stderr)
+	    block, source_array, work_array, target_array, mSize, stdout,stderr)
       {
 	int const tid = omp_get_thread_num();  
 
@@ -191,6 +186,7 @@ int main (int argc, char *argv[])
 	      }
 	  }
 
+#ifndef WITHOUT_LOCAL_TRANSPOSE
 	// compute thread local part of diagonal
 	int l;
 	for (l = tStart; l <= tStop; l++) 	
@@ -198,8 +194,7 @@ int main (int argc, char *argv[])
 	    if (block[l].pid == iProc)
 	      {
 		// compute
-		data_compute(iProc
-			     , mStart
+		data_compute(mStart
 			     , mStop
 			     , block
 			     , l
@@ -209,7 +204,7 @@ int main (int argc, char *argv[])
 			     );
 	      }
 	  }	    
-
+#endif
 	// compute off diagonal
 	for (l = tStart; l <= tStop; l++) 	
 	  {	    
@@ -223,9 +218,9 @@ int main (int argc, char *argv[])
 						      , &id
 						      , GASPI_BLOCK
 						      ));
+#ifndef WITHOUT_LOCAL_TRANSPOSE
 		// compute
-		data_compute(iProc
-			     , mStart
+		data_compute(mStart
 			     , mStop
 			     , block
 			     , l
@@ -233,6 +228,7 @@ int main (int argc, char *argv[])
 			     , target_array
 			     , mSize
 			     );
+#endif
 	      }
 	  }
 
@@ -270,20 +266,13 @@ int main (int argc, char *argv[])
   MPI_Barrier(MPI_COMM_WORLD);
 
 
+#ifndef WITHOUT_LOCAL_TRANSPOSE
   // validate */ 
-  data_validate(iProc
+  data_validate(mSize
 		, mStart
-		, mStop
-		, block
-		, block_num
-		, 0
-		, block_num
-		, source_array
-		, work_array
 		, target_array
-		, mSize
 		);
-  
+#endif  
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -295,11 +284,13 @@ int main (int argc, char *argv[])
 
   MPI_Barrier(MPI_COMM_WORLD);
  
+#ifndef WITHOUT_LOCAL_TRANSPOSE
   if (iProc == nProc-1) 
     {
       double res = M_SZ*M_SZ*sizeof(double)*2 / (1024*1024*1024 * median[(NITER-1)/2]);
       printf("\nRate (Transposition Rate): %lf\n",res);
     }
+#endif  
 
   MPI_Finalize();
 

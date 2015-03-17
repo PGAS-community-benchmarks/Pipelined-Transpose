@@ -15,15 +15,12 @@ typedef struct
 #define target_array_ELEM(i,j) ((double *)target_array)[POSITION (i,j)]
 
 
-void data_init(int iProc
-	       , int nProc
-	       , int mStart
-	       , int mStop
-	       , block_t *block
+void data_init(block_t *block
 	       , int *block_num
 	       , int tSize
 	       , int mSize
 	       );
+
 
 void data_init_tlocal(int mStart
 		      , int mStop
@@ -38,8 +35,7 @@ void data_init_tlocal(int mStart
 		      ,int mSize
 		      );
 
-void data_compute(int iProc
-		  , int mStart
+void data_compute(int mStart
 		  , int mStop
 		  , block_t *block
 		  , int i
@@ -48,18 +44,12 @@ void data_compute(int iProc
 		  , int mSize
 		  );
 
-void data_validate(int iProc
+
+void data_validate(int mSize
 		   , int mStart
-		   , int mStop
-		   , block_t *block
-		   , int block_num
-		   , int tStart
-		   , int tStop
-		   , double* source_array
-		   , double* work_array
 		   , double* target_array
-		   , int mSize
 		   );
+
 
 void sort_median(double *begin, double *end);
 

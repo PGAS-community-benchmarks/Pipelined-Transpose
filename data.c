@@ -4,17 +4,13 @@
 #include "assert.h"
 #include "math.h"
 
-void data_init(int iProc
-	       , int nProc
-	       , int mStart
-	       , int mStop
-	       , block_t *block
+void data_init(block_t *block
 	       , int *block_num
 	       , int tSize
 	       , int mSize
 	       )
 {
-  int i, j;
+  int i;
   int num = 0;
   int lid = 0;
   int pid = 0;
@@ -52,16 +48,6 @@ void data_init(int iProc
   block[num].tid = lid;
   block[num].pid = pid;
   num++;
-
-#ifdef DEBUG
-
-  for (i = 0; i < num; ++i)
-    {
-      int jstart = block[i].start - block[i].pid * mSize;
-      printf("iProc: %d block: id: %d jstart: %d jstart mod CL: %d\n",iProc,i,jstart,jstart % CL);
-    }
-
-#endif
 
   *block_num = num;
 
@@ -123,8 +109,7 @@ void data_init_tlocal(int mStart
 }
 
 
-void data_compute(int iProc
-		  , int mStart
+void data_compute(int mStart
 		  , int mStop
 		  , block_t *block
 		  , int i
@@ -133,7 +118,7 @@ void data_compute(int iProc
 		  , int mSize
 		  )
 {
-  int j, k, l;
+  int j, k;
   for (k = 0; k < mStop-mStart; k++) 	
     {
       const int jstart = block[i].pid * mSize;
@@ -150,28 +135,16 @@ void data_compute(int iProc
 }
 
 
-void data_validate(int iProc
+void data_validate(int mSize
 		   , int mStart
-		   , int mStop
-		   , block_t *block
-		   , int block_num
-		   , int tStart
-		   , int tStop
-		   , double* source_array
-		   , double* work_array
 		   , double* target_array
-		   , int mSize
 		   )
 {
-  int i, j, k;
+  int j, k;
   for (j = 0; j < M_SZ; j++)
     {
       for (k = 0;  k < mSize; k++) 	
 	{
-	  /*
-	  printf("iProc: %d k: %d j: %d transpose: %lf - source/work/target: %lf/%lf/%lf\n",
-		 iProc,k,j,(double) (k + mStart) * M_SZ + j,source_array_ELEM(k,j),work_array_ELEM(k,j),target_array_ELEM(k,j));
-	  */
 	  ASSERT(target_array_ELEM(k,j) == (double) (k + mStart) * M_SZ + j);
 	}
     }
