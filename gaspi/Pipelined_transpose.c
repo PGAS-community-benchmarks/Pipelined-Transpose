@@ -153,16 +153,14 @@ int main (int argc, char *argv[])
     {
       double time = -now();
       MPI_Barrier(MPI_COMM_WORLD);
-#pragma omp parallel default (none) shared(block_num, iProc, nProc, to,	\
+#pragma omp parallel default (none) shared(iter, block_num, iProc, nProc, to, \
 	    block, source_array, work_array, target_array, mSize, stdout,stderr)
       {
-	int const tid = omp_get_thread_num();  
-
 	// GASPI all-to-all - single comm phase
 	if (this_is_the_first_thread())
 	  {
 	    gaspi_queue_id_t queue_id = 0;
-	    int j, k;
+	    int k;
 	    for (k = 0; k < nProc - 1 ; ++k)
 	      {
 		gaspi_rank_t target = to[k][iProc];
@@ -186,49 +184,63 @@ int main (int argc, char *argv[])
 	      }
 	  }
 
-#ifndef WITHOUT_LOCAL_TRANSPOSE
-	// compute thread local part of diagonal
-	int l;
-	for (l = tStart; l <= tStop; l++) 	
-	  {	    
-	    if (block[l].pid == iProc)
-	      {
-		// compute
-		data_compute(mStart
-			     , mStop
-			     , block
-			     , l
-			     , source_array
-			     , target_array
-			     , mSize
-			     );
+	// multithreaded pipelined local transpose
+	for (;;) 
+	  {
+	    int l, fnl = 0;
+	    for (l = tStart; l <= tStop; l++) 	
+	      {	    
+		if (block[l].stage < iter)
+		  {		    
+		    if (block[l].pid == iProc)
+		      {
+			// compute local diagonal 
+			data_compute(mStart
+				     , mStop
+				     , block
+				     , l
+				     , source_array
+				     , target_array
+				     , mSize
+				     );			    
+			block[l].stage++;
+		      }
+		    else
+		      {
+			gaspi_notification_id_t data_available = block[l].pid;		
+			gaspi_notification_id_t id;
+			gaspi_return_t ret;
+			if ((ret = gaspi_notify_waitsome (work_id
+							  , data_available
+							  , 1
+							  , &id
+							  , GASPI_TEST
+							  )) == GASPI_SUCCESS)
+			  {
+			    ASSERT (id == data_available);
+			    
+			    // compute off diagonal
+			    data_compute(mStart
+					 , mStop
+					 , block
+					 , l
+					 , work_array
+					 , target_array
+					 , mSize
+					 );
+			    block[l].stage++;
+			  }			  
+		      }
+		  }
+		else 
+		  {
+		    ASSERT(block[l].stage == iter);
+		    fnl++;
+		  }
 	      }
-	  }	    
-#endif
-	// compute off diagonal
-	for (l = tStart; l <= tStop; l++) 	
-	  {	    
-	    if (block[l].pid != iProc)
+	    if (fnl == tStop-tStart+1)
 	      {
-		gaspi_notification_id_t data_available = block[l].pid;		
-		gaspi_notification_id_t id;
-		SUCCESS_OR_DIE(gaspi_notify_waitsome (work_id
-						      , data_available
-						      , 1
-						      , &id
-						      , GASPI_BLOCK
-						      ));
-#ifndef WITHOUT_LOCAL_TRANSPOSE
-		// compute
-		data_compute(mStart
-			     , mStop
-			     , block
-			     , l
-			     , work_array
-			     , target_array
-			     , mSize
-			     );
-#endif
+		break;
 	      }
 	  }
 
@@ -250,10 +262,7 @@ int main (int argc, char *argv[])
 		  }
 	      }
 	  }
-			
-#pragma omp barrier
-
-
+	
       }
       MPI_Barrier(MPI_COMM_WORLD);
       time += now();
@@ -266,13 +275,11 @@ int main (int argc, char *argv[])
   MPI_Barrier(MPI_COMM_WORLD);
 
 
-#ifndef WITHOUT_LOCAL_TRANSPOSE
   // validate */ 
   data_validate(mSize
 		, mStart
 		, target_array
 		);
-#endif  
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -284,13 +291,11 @@ int main (int argc, char *argv[])
 
   MPI_Barrier(MPI_COMM_WORLD);
  
-#ifndef WITHOUT_LOCAL_TRANSPOSE
   if (iProc == nProc-1) 
     {
       double res = M_SZ*M_SZ*sizeof(double)*2 / (1024*1024*1024 * median[(NITER-1)/2]);
       printf("\nRate (Transposition Rate): %lf\n",res);
     }
-#endif  
 
   MPI_Finalize();
 

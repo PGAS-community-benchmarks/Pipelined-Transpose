@@ -22,10 +22,13 @@ void data_init(block_t *block
       if (i % BL_SZ == 0 || i % mSize == 0 || i % tSize == 0)
 	{
 	  // prev block
+	  omp_init_lock (&block[num].lock);
+	  block[num].stage = -1;
 	  block[num].end  = i;
 	  block[num].start = start;
 	  block[num].tid = lid;
 	  block[num].pid = pid;
+
 
 	  if (i % mSize == 0)
 	    {	      
@@ -43,6 +46,8 @@ void data_init(block_t *block
 	}
     }
   // add last block
+  omp_init_lock (&block[num].lock);
+  block[num].stage = -1;
   block[num].end  = i;
   block[num].start = start;
   block[num].tid = lid;

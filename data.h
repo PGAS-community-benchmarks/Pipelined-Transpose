@@ -1,10 +1,13 @@
 #ifndef DATA_H
 #define DATA_H
 
+#include <omp.h>
 #include "constant.h"
 
 typedef struct 
 {
+  volatile int stage  __attribute__((aligned(64)));
+  omp_lock_t lock __attribute__((aligned(64))); 
   int start, end, tid, pid;
 } block_t;
 
