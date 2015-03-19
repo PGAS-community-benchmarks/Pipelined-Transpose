@@ -185,9 +185,11 @@ int main (int argc, char *argv[])
 	  }
 
 	// multithreaded pipelined local transpose
-	for (;;) 
+	int fnl;
+	do 
 	  {
-	    int l, fnl = 0;
+	    int l;
+	    fnl = 0;
 	    for (l = tStart; l <= tStop; l++) 	
 	      {	    
 		if (block[l].stage < iter)
@@ -238,11 +240,8 @@ int main (int argc, char *argv[])
 		    fnl++;
 		  }
 	      }
-	    if (fnl == tStop-tStart+1)
-	      {
-		break;
-	      }
 	  }
+	while (fnl < tStop-tStart+1);
 
 	// reset all notifications
 	if (this_is_the_last_thread())
