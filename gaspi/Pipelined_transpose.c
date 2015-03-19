@@ -128,19 +128,19 @@ int main (int argc, char *argv[])
 
   // mutual handshake schedule - requires even nProc 
   ASSERT(nProc % 2 == 0);
-  gaspi_rank_t to[nProc-1][nProc];
+  gaspi_rank_t to[nProc][nProc-1];
   for (i = 0; i < nProc - 1 ; ++i)
     {
       int k;
       to[i][i] = nProc-1;
-      to[i][nProc-1] = i;
+      to[nProc-1][i] = i;
 
       for (k = 1; k < nProc/2 ; ++k)
 	{
 	  int d1 = (i - k + (nProc-1)) % (nProc-1);	      
 	  int d2 = (i + k + (nProc-1)) % (nProc-1);	      
-	  to[i][d1] = d2;
-	  to[i][d2] = d1;
+	  to[d1][i] = d2;
+	  to[d2][i] = d1;
 	}
     }	  
 
@@ -163,7 +163,7 @@ int main (int argc, char *argv[])
 	    int k;
 	    for (k = 0; k < nProc - 1 ; ++k)
 	      {
-		gaspi_rank_t target = to[k][iProc];
+		gaspi_rank_t target = to[iProc][k];
 		const int len = mSize * mSize * sizeof(double); 
 		const int toffset = iProc * mSize;
 		const int soffset = target * mSize;
