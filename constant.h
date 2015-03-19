@@ -1,10 +1,6 @@
 #ifndef CONSTANT_H
 #define CONSTANT_H
 
-typedef struct 
-{
-  volatile int global  __attribute__((aligned(64)));
-} counter_t;
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 

@@ -120,7 +120,6 @@ int main (int argc, char *argv[])
 			 );
 	  }
 
-#ifndef WITHOUT_LOCAL_TRANSPOSE
 #pragma omp barrier
 	// compute local diagonal
 	int l;
@@ -137,10 +136,6 @@ int main (int argc, char *argv[])
 			 );
 	    
 	  }
-#endif
-
-#pragma omp barrier
-
       }
       MPI_Barrier(MPI_COMM_WORLD);
       time += now();
@@ -152,13 +147,11 @@ int main (int argc, char *argv[])
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-#ifndef WITHOUT_LOCAL_TRANSPOSE
   // validate */ 
   data_validate(mSize
 		, mStart
 		, target_array
 		);
-#endif
 
   
   MPI_Barrier(MPI_COMM_WORLD);
@@ -171,13 +164,11 @@ int main (int argc, char *argv[])
 
   MPI_Barrier(MPI_COMM_WORLD);
  
-#ifndef WITHOUT_LOCAL_TRANSPOSE
   if (iProc == nProc-1) 
     {
       double res = M_SZ*M_SZ*sizeof(double)*2 / (1024*1024*1024 * median[(NITER-1)/2]);
       printf("\nRate (Transposition Rate): %lf\n",res);
     }
-#endif
 
   MPI_Finalize();
 
