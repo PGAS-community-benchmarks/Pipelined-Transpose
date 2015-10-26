@@ -109,7 +109,7 @@ in the ./mpi and ./gaspi directories.
 ==============================================================================
 
 For current results on a Fat Tree FDR/Ivy Bridge please have a look at wiki: 
-https://github.com/PGAS-community-benchmarks/CFD-Proxy/wiki
+https://github.com/PGAS-community-benchmarks/Pipelined-Transpose/wiki
 
 ==============================================================================
 8. Community involvement
