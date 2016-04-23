@@ -18,26 +18,6 @@ typedef struct
 #define target_array_ELEM(i,j) ((double *)target_array)[POSITION (i,j)]
 
 
-void data_init(block_t *block
-	       , int *block_num
-	       , int tSize
-	       , int mSize
-	       );
-
-
-void data_init_tlocal(int mStart
-		      , int mStop
-		      , block_t *block
-		      , int block_num
-		      , int *tStart
-		      , int *tStop
-		      , int tid
-		      , double* source_array
-		      , double* work_array
-		      , double* target_array
-		      ,int mSize
-		      );
-
 void data_compute(int mStart
 		  , int mStop
 		  , block_t *block

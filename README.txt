@@ -87,8 +87,8 @@ in the ./mpi and ./gaspi directories.
    require support for MPI_THREAD_MULTIPLE.
  
 3) GASPI can make use of the startup mechanisms of MPI. Start the
-   hybrid MPI/GASPI executable as a regular  hybrid OpenMP/MPI application, 
-   e.g mpirun -np 2 -machinefile machines -perhost 2 ./foo.exe
+   hybrid MPI/GASPI executable as a regular  hybrid OpenMP/MPI application, e.g  
+   mpirun -np 2 -machinefile machines -perhost 2 ./foo.exe
 
 ==============================================================================
 5. MPI
@@ -108,8 +108,7 @@ in the ./mpi and ./gaspi directories.
 7. Results
 ==============================================================================
 
-For current results on a Fat Tree FDR/Ivy Bridge please have a look at wiki: 
-https://github.com/PGAS-community-benchmarks/Pipelined-Transpose/wiki#results
+See documentation.
 
 ==============================================================================
 8. Community involvement

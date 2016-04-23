@@ -15,7 +15,6 @@ static void wait_for_queue_entries (gaspi_queue_id_t* queue, int wanted_entries)
   if (! (queue_size + wanted_entries <= queue_size_max))
     {
       *queue = (*queue + 1) % queue_num;
-
       SUCCESS_OR_DIE (gaspi_wait (*queue, GASPI_BLOCK));
     }
 }
@@ -23,6 +22,18 @@ static void wait_for_queue_entries (gaspi_queue_id_t* queue, int wanted_entries)
 void wait_for_queue_entries_for_write_notify (gaspi_queue_id_t* queue_id)
 {
   wait_for_queue_entries (queue_id, 2);
+}
+
+
+void wait_for_queue_entries_for_read_notify (gaspi_queue_id_t* queue_id)
+{
+  gaspi_number_t queue_size_max;
+  gaspi_number_t queue_size;
+  gaspi_number_t queue_num;
+
+  SUCCESS_OR_DIE (gaspi_queue_num (&queue_num));
+  *queue_id = (*queue_id + 1) % queue_num;
+  SUCCESS_OR_DIE (gaspi_wait (*queue_id, GASPI_BLOCK));
 }
 
 void wait_for_flush_queues ()

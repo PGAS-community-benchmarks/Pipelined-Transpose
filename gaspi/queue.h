@@ -3,6 +3,7 @@
 
 #include <GASPI.h>
 
+void wait_for_queue_entries_for_read_notify (gaspi_queue_id_t*);
 void wait_for_queue_entries_for_write_notify (gaspi_queue_id_t*);
 void wait_for_queue_entries_for_notify (gaspi_queue_id_t*);
 void wait_for_queue_max_half (gaspi_queue_id_t*);

@@ -16,6 +16,7 @@
 #include "assert.h"
 #include "constant.h"
 #include "data.h"
+#include "data_global.h"
 #include "now.h"
 #include "mm_pause.h"
 #include "success_or_die.h"
@@ -28,11 +29,18 @@
 #include <stdlib.h>
 #include <omp.h>
 
-// threadprivate rangelist data
-static int tStart = -1;
-#pragma omp threadprivate(tStart)
-static int tStop  = -2;
-#pragma omp threadprivate(tStop)
+
+int get_ctr(volatile int *ptr){
+#pragma omp flush 
+  return *ptr;
+}
+
+int increment_ctr(volatile int *ptr){
+#pragma omp flush 
+  __sync_fetch_and_add(ptr, 1);
+#pragma omp flush 
+  return *ptr;
+}
 
 int main (int argc, char *argv[])
 {
@@ -40,7 +48,7 @@ int main (int argc, char *argv[])
   int nProc, iProc;
   int provided, required = MPI_THREAD_FUNNELED;
   MPI_Init_thread(&argc, &argv, required, &provided);
-  ASSERT(required == MPI_THREAD_FUNNELED);
+  //  ASSERT(provided == MPI_THREAD_FUNNELED);
 
   MPI_Comm_rank (MPI_COMM_WORLD, &iProc);
   MPI_Comm_size (MPI_COMM_WORLD, &nProc);
@@ -51,10 +59,10 @@ int main (int argc, char *argv[])
   SUCCESS_OR_DIE (gaspi_proc_num (&nProcG));
   ASSERT(iProc == iProcG);
   ASSERT(nProc == nProcG);
-
+  
   // num threads
   omp_set_num_threads(nThreads);
-
+  
   // assignment per proc, i-direction 
   int mSize = M_SZ/nProc;
   ASSERT(M_SZ % nProc == 0); 
@@ -90,44 +98,19 @@ int main (int argc, char *argv[])
   ASSERT(mSize % CL == 0);
   double *target_array = memalign(CL* sizeof (double), mSize * M_SZ * sizeof (double));
 
-  // assignment per thread
-  int tSize = M_SZ/nThreads;
-  if (M_SZ % nThreads != 0) 
-    {
-      tSize++;
-    }
 
   // alloc (max) M_SZ blocks per process 
   block_t (*block) = malloc( M_SZ * sizeof(block_t));	  
   int block_num = 0;
 
-  data_init(block
-	    , &block_num
-	    , tSize
-	    , mSize
-	    );
-
-  // init thread local data, set thread range (tStart <= row <= tStop)
-#pragma omp parallel default (none) shared(block, block_num, \
-  	    mSize, source_array, work_array, target_array, stdout, stderr)
-  {
-    int const tid = omp_get_thread_num();  
-    data_init_tlocal(mStart
-		     , mStop
-		     , block
-		     , block_num
-		     , &tStart
-		     , &tStop
-		     , tid
-		     , source_array
-		     , work_array
-		     , target_array
-		     , mSize
-		     );
-  }
-
+  init_global(block
+	      , &block_num
+	      , mSize
+	      );
+  
   // mutual handshake schedule - requires even nProc 
   ASSERT(nProc % 2 == 0);
+
   gaspi_rank_t to[nProc][nProc-1];
   for (i = 0; i < nProc - 1 ; ++i)
     {
@@ -151,10 +134,24 @@ int main (int argc, char *argv[])
 
   for (iter = 0; iter < NITER; iter++) 
     {
+
+      data_init_global(mStart
+		       , mStop
+		       , block
+		       , block_num
+		       , source_array
+		       , work_array
+		       , target_array
+		       , mSize
+		       );
+      
+
       double time = -now();
       MPI_Barrier(MPI_COMM_WORLD);
+
 #pragma omp parallel default (none) shared(iter, block_num, iProc, nProc, to, \
-	    block, source_array, work_array, target_array, mSize, stdout,stderr)
+					   block, source_array, work_array, target_array, \
+					   mSize, mStart, mStop, stdout,stderr)
       {
 	// GASPI all-to-all - single comm phase
 	if (this_is_the_first_thread())
@@ -184,64 +181,82 @@ int main (int argc, char *argv[])
 	      }
 	  }
 
-	// multithreaded pipelined local transpose
-	int fnl;
+	int fnl = 0;
 	do 
 	  {
 	    int l;
 	    fnl = 0;
-	    for (l = tStart; l <= tStop; l++) 	
+	    for (l = 0; l < block_num; l++) 	
 	      {	    
-		if (block[l].stage < iter)
-		  {		    
-		    if (block[l].pid == iProc)
+		volatile int stage = -1;
+		// check
+		if ((stage = get_ctr(&block[l].stage)) < iter)
+		  {	
+		    // lock
+		    if(omp_test_lock(&block[l].lock))
 		      {
-			// compute local diagonal 
-			data_compute(mStart
-				     , mStop
-				     , block
-				     , l
-				     , source_array
-				     , target_array
-				     , mSize
-				     );			    
-			block[l].stage++;
-		      }
-		    else
-		      {
-			gaspi_notification_id_t data_available = block[l].pid;		
-			gaspi_notification_id_t id;
-			gaspi_return_t ret;
-			if ((ret = gaspi_notify_waitsome (work_id
-							  , data_available
-							  , 1
-							  , &id
-							  , GASPI_TEST
-							  )) == GASPI_SUCCESS)
+			// re-check
+			if ((stage = get_ctr(&block[l].stage)) < iter)
 			  {
-			    ASSERT (id == data_available);
-			    
-			    // compute off diagonal
-			    data_compute(mStart
-					 , mStop
-					 , block
-					 , l
-					 , work_array
-					 , target_array
-					 , mSize
-					 );
-			    block[l].stage++;
-			  }			  
+			    // compute (node) local diagonal 
+			    if (block[l].pid == iProc)
+			      {
+				data_compute(mStart
+					     , mStop
+					     , block
+					     , l
+					     , source_array
+					     , target_array
+					     , mSize
+					     );
+
+				//increment ctr
+				increment_ctr(&block[l].stage);
+			      }
+			    else
+			      {
+				// compute off diagonal
+				gaspi_notification_id_t data_available = block[l].pid;		
+				gaspi_notification_id_t id;
+				gaspi_return_t ret;
+				if ((ret = gaspi_notify_waitsome (work_id
+								  , data_available
+								  , 1
+								  , &id
+								  , GASPI_TEST
+								  )) == GASPI_SUCCESS)
+				  {
+				    ASSERT (id == data_available);
+
+				    // compute off diagonal
+				    data_compute(mStart
+						 , mStop
+						 , block
+						 , l
+						 , work_array
+						 , target_array
+						 , mSize
+						 );
+
+				    //increment ctr
+				    increment_ctr(&block[l].stage);
+
+				  }			  
+			      }
+			  }
+			// unlock
+			omp_unset_lock (&block[l].lock);
 		      }
 		  }
-		else 
+		else
 		  {
 		    ASSERT(block[l].stage == iter);
 		    fnl++;
 		  }
-	      }
+	      }	    
 	  }
-	while (fnl < tStop-tStart+1);
+	while (fnl < block_num);
+
 
 	// reset all notifications
 	if (this_is_the_last_thread())
@@ -263,23 +278,22 @@ int main (int argc, char *argv[])
 	  }
 	
       }
+
       MPI_Barrier(MPI_COMM_WORLD);
       time += now();
       
       /* iteration time */
       median[iter] = time;
+
+      // validate */ 
+      data_validate(mSize
+		    , mStart
+		    , target_array
+		    );
+
+
     }
   
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-
-  // validate */ 
-  data_validate(mSize
-		, mStart
-		, target_array
-		);
-
   MPI_Barrier(MPI_COMM_WORLD);
 
   sort_median(&median[0], &median[NITER-1]);
@@ -287,6 +301,7 @@ int main (int argc, char *argv[])
   printf ("# gaspi %s nProc: %d nThreads: %d nBlocks: %d M_SZ: %d niter: %d time: %g\n"
 	  , argv[0], nProc, nThreads, block_num, M_SZ, NITER, median[NITER/2]
          );
+  fflush(stdout);
 
   MPI_Barrier(MPI_COMM_WORLD);
  
@@ -294,6 +309,7 @@ int main (int argc, char *argv[])
     {
       double res = M_SZ*M_SZ*sizeof(double)*2 / (1024*1024*1024 * median[(NITER-1)/2]);
       printf("\nRate (Transposition Rate): %lf\n",res);
+      fflush(stdout);
     }
 
   MPI_Finalize();
