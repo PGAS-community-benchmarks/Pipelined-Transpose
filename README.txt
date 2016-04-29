@@ -107,8 +107,9 @@ in the ./mpi and ./gaspi directories.
 ==============================================================================
 7. Results
 ==============================================================================
-
-See documentation.
+ 
+   New and shiny results for Infiniband FDR
+   https://github.com/PGAS-community-benchmarks/Pipelined-Transpose/wiki
 
 ==============================================================================
 8. Community involvement
